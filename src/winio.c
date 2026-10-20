@@ -648,9 +648,9 @@ int convert_CSI_sequence(const int *seq, size_t length, int *consumed)
 						 * act as if they are Home/End/PgUp/PgDown with Shift. */
 						switch (seq[3]) {
 							case 'A': /* Esc [ 1 ; 4 A == Shift-Alt-Up on xterm. */
-								return SHIFT_PAGEUP;
+								return SHIFT_ALT_UP;
 							case 'B': /* Esc [ 1 ; 4 B == Shift-Alt-Down on xterm. */
-								return SHIFT_PAGEDOWN;
+								return SHIFT_ALT_DOWN;
 							case 'C': /* Esc [ 1 ; 4 C == Shift-Alt-Right on xterm. */
 								return SHIFT_END;
 							case 'D': /* Esc [ 1 ; 4 D == Shift-Alt-Left on xterm. */
@@ -1045,6 +1045,14 @@ int parse_kbinput(WINDOW *frame)
 #ifndef NANO_TINY
 			else if (keycode == KEY_BACKSPACE || keycode == '\b' || keycode == DEL_CODE)
 				return CONTROL_SHIFT_DELETE;
+			else if (keycode == KEY_UP)
+				return ALT_UP;
+			else if (keycode == KEY_DOWN)
+				return ALT_DOWN;
+			else if (keycode == shiftup)
+				return SHIFT_ALT_UP;
+			else if (keycode == shiftdown)
+				return SHIFT_ALT_DOWN;
 #endif
 			else if (keycode < 0x20 && !last_escape_was_alone) {
 				meta_key = TRUE;
@@ -1071,8 +1079,8 @@ int parse_kbinput(WINDOW *frame)
 				case 'C': return CONTROL_RIGHT;
 				case 'D': return CONTROL_LEFT;
 #ifndef NANO_TINY
-				case 'a': shift_held = TRUE; return KEY_PPAGE;
-				case 'b': shift_held = TRUE; return KEY_NPAGE;
+				case 'a': return SHIFT_ALT_UP;
+				case 'b': return SHIFT_ALT_DOWN;
 				case 'c': shift_held = TRUE; return KEY_HOME;
 				case 'd': shift_held = TRUE; return KEY_END;
 #endif
@@ -1188,11 +1196,9 @@ int parse_kbinput(WINDOW *frame)
 		shift_held = TRUE;
 		return KEY_END;
 	} else if (keycode == shiftaltup) {
-		shift_held = TRUE;
-		return KEY_PPAGE;
+		return SHIFT_ALT_UP;
 	} else if (keycode == shiftaltdown) {
-		shift_held = TRUE;
-		return KEY_NPAGE;
+		return SHIFT_ALT_DOWN;
 	} else if ((KEY_F0 + 24) < keycode && keycode < (KEY_F0 + 64))
 		return FOREIGN_SEQUENCE;
 #endif
@@ -1246,8 +1252,8 @@ int parse_kbinput(WINDOW *frame)
 		/* Are both Shift and Alt being held? */
 		if ((modifiers & 0x09) == 0x09) {
 			switch (keycode) {
-				case KEY_UP:    return KEY_PPAGE;
-				case KEY_DOWN:  return KEY_NPAGE;
+				case KEY_UP:    return SHIFT_ALT_UP;
+				case KEY_DOWN:  return SHIFT_ALT_DOWN;
 				case KEY_LEFT:  return KEY_HOME;
 				case KEY_RIGHT: return KEY_END;
 			}

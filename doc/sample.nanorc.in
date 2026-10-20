@@ -351,3 +351,11 @@
 # bind ^U "{mark}{home}{zap}" main
 # bind ^Z undo main
 # bind ^Y redo main
+
+## Duplicate current line up/down (bound by default to M-Up and M-Down):
+# bind M-Up copylineup main
+# bind M-Down copylinedown main
+
+## Move current line up/down (bound by default to Sh-M-Up and Sh-M-Down):
+# bind Sh-M-Up movelineup main
+# bind Sh-M-Down movelinedown main

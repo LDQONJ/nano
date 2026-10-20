@@ -402,14 +402,24 @@ int keycode_from_string(const char *keystring)
 			return ALT_INSERT;
 		else if (strcasecmp(keystring, "M-Del") == 0)
 			return ALT_DELETE;
+		else if (strcasecmp(keystring, "M-Sh-Up") == 0)
+			return SHIFT_ALT_UP;
+		else if (strcasecmp(keystring, "M-Sh-Down") == 0)
+			return SHIFT_ALT_DOWN;
 		else
 			return -1;
 #ifdef ENABLE_NANORC
-	} else if (strncasecmp(keystring, "Sh-M-", 5) == 0 &&
-				'a' <= (keystring[5] | 0x20) && (keystring[5] | 0x20) <= 'z' &&
+	} else if (strncasecmp(keystring, "Sh-M-", 5) == 0) {
+		if ('a' <= (keystring[5] | 0x20) && (keystring[5] | 0x20) <= 'z' &&
 				keystring[6] == '\0') {
-		shifted_metas = TRUE;
-		return (keystring[5] & 0x5F);
+			shifted_metas = TRUE;
+			return (keystring[5] & 0x5F);
+		} else if (strcasecmp(keystring, "Sh-M-Up") == 0)
+			return SHIFT_ALT_UP;
+		else if (strcasecmp(keystring, "Sh-M-Down") == 0)
+			return SHIFT_ALT_DOWN;
+		else
+			return -1;
 #endif
 	} else if (keystring[0] == 'F') {
 		int fn = atoi(&keystring[1]);
@@ -676,6 +686,10 @@ void shortcut_init(void)
 		N_("Delete forward from cursor to next word start");
 	const char *cuttilleof_gist =
 		N_("Cut from the cursor position to the end of the file");
+	const char *copylineup_gist = N_("Duplicate the current line upward");
+	const char *copylinedown_gist = N_("Duplicate the current line downward");
+	const char *movelineup_gist = N_("Move the current line up");
+	const char *movelinedown_gist = N_("Move the current line down");
 #endif
 #ifdef ENABLE_JUSTIFY
 	const char *justify_gist = N_("Justify the current paragraph");
@@ -1105,6 +1119,15 @@ void shortcut_init(void)
 	add_to_funcs(to_next_anchor, MMAIN,
 			N_("Down to anchor"), WHENHELP(nextanchor_gist), BLANKAFTER);
 
+	add_to_funcs(copy_line_up, MMAIN,
+			N_("Copy Line Up"), WHENHELP(copylineup_gist), TOGETHER);
+	add_to_funcs(copy_line_down, MMAIN,
+			N_("Copy Line Down"), WHENHELP(copylinedown_gist), BLANKAFTER);
+	add_to_funcs(move_line_up, MMAIN,
+			N_("Move Line Up"), WHENHELP(movelineup_gist), TOGETHER);
+	add_to_funcs(move_line_down, MMAIN,
+			N_("Move Line Down"), WHENHELP(movelinedown_gist), BLANKAFTER);
+
 #ifdef ENABLE_SPELLER
 	add_to_funcs(do_spell, MMAIN,
 			N_("Spell Check"), WHENHELP(spell_gist), TOGETHER);
@@ -1438,13 +1461,21 @@ void shortcut_init(void)
 #ifndef NANO_TINY
 #ifdef ENABLE_UTF8
 	if (using_utf8) {
-		add_to_sclist(MMAIN|MHELP, "M-\xE2\x96\xb4", ALT_UP, do_scroll_up);
-		add_to_sclist(MMAIN|MHELP, "M-\xE2\x96\xbe", ALT_DOWN, do_scroll_down);
+		add_to_sclist(MMAIN, "M-\xE2\x96\xb4", ALT_UP, copy_line_up);
+		add_to_sclist(MMAIN, "M-\xE2\x96\xbe", ALT_DOWN, copy_line_down);
+		add_to_sclist(MMAIN, "Sh-M-\xE2\x96\xb4", SHIFT_ALT_UP, move_line_up);
+		add_to_sclist(MMAIN, "Sh-M-\xE2\x96\xbe", SHIFT_ALT_DOWN, move_line_down);
+		add_to_sclist(MHELP, "M-\xE2\x96\xb4", ALT_UP, do_scroll_up);
+		add_to_sclist(MHELP, "M-\xE2\x96\xbe", ALT_DOWN, do_scroll_down);
 	} else
 #endif
 	{
-		add_to_sclist(MMAIN|MHELP, "M-Up", ALT_UP, do_scroll_up);
-		add_to_sclist(MMAIN|MHELP, "M-Down", ALT_DOWN, do_scroll_down);
+		add_to_sclist(MMAIN, "M-Up", ALT_UP, copy_line_up);
+		add_to_sclist(MMAIN, "M-Down", ALT_DOWN, copy_line_down);
+		add_to_sclist(MMAIN, "Sh-M-Up", SHIFT_ALT_UP, move_line_up);
+		add_to_sclist(MMAIN, "Sh-M-Down", SHIFT_ALT_DOWN, move_line_down);
+		add_to_sclist(MHELP, "M-Up", ALT_UP, do_scroll_up);
+		add_to_sclist(MHELP, "M-Down", ALT_DOWN, do_scroll_down);
 	}
 #endif
 #if !defined(NANO_TINY) || defined(ENABLE_HELP)

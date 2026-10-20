@@ -138,6 +138,11 @@ void find_and_prime_applicable_syntax(void)
 {
 	syntaxtype *sntx = NULL;
 
+#ifdef ENABLE_NANORC
+	if (syntaxes == NULL)
+		load_default_syntaxes();
+#endif
+
 	/* If the rcfiles were not read, or contained no syntaxes, get out. */
 	if (syntaxes == NULL)
 		return;

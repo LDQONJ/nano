@@ -468,6 +468,7 @@ keystruct *strtosc(const char *input);
 void parse_one_include(char *file, syntaxtype *syntax);
 void grab_and_store(const char *kind, char *ptr, regexlisttype **storage);
 bool parse_syntax_commands(char *keyword, char *ptr);
+void load_default_syntaxes(void);
 #endif
 void parse_rcfile(FILE *rcstream, bool just_syntax, bool intros_only);
 void do_rcfiles(void);
@@ -517,6 +518,10 @@ void do_undo(void);
 void do_redo(void);
 void do_enter(void);
 #ifndef NANO_TINY
+void copy_line_down(void);
+void copy_line_up(void);
+void move_line_down(void);
+void move_line_up(void);
 void discard_until(const undostruct *thisitem);
 void add_undo(undo_type action, const char *message);
 void update_multiline_undo(ssize_t lineno, char *indentation);

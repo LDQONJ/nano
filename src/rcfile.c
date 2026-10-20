@@ -326,6 +326,16 @@ keystruct *strtosc(const char *input)
 		s->func = do_redo;
 	else if (!strcmp(input, "suspend"))
 		s->func = do_suspend;
+	else if (!strcmp(input, "copylineup") ||
+	         !strcmp(input, "duplineup"))
+		s->func = copy_line_up;
+	else if (!strcmp(input, "copylinedown") ||
+	         !strcmp(input, "duplinedown"))
+		s->func = copy_line_down;
+	else if (!strcmp(input, "movelineup"))
+		s->func = move_line_up;
+	else if (!strcmp(input, "movelinedown"))
+		s->func = move_line_down;
 #endif
 	else if (!strcmp(input, "left") ||
 	         !strcmp(input, "back"))
@@ -1713,6 +1723,41 @@ bool have_nanorc(const char *path, const char *name)
 	return is_good_file(nanorc);
 }
 
+#ifdef ENABLE_COLOR
+#ifndef PKGDATADIR
+#define PKGDATADIR "/usr/local/share/nano"
+#endif
+
+/* Load the system-installed syntaxes if no syntaxes have been defined. */
+void load_default_syntaxes(void)
+{
+	static bool tried_loading = FALSE;
+
+	if (syntaxes != NULL || tried_loading)
+		return;
+
+	tried_loading = TRUE;
+
+	char *inc_glob = copy_of("\"" PKGDATADIR "/*.nanorc\"");
+	parse_includes(inc_glob);
+	free(inc_glob);
+
+	inc_glob = copy_of("\"" PKGDATADIR "/extra/*.nanorc\"");
+	parse_includes(inc_glob);
+	free(inc_glob);
+
+	if (syntaxes == NULL && strcmp(PKGDATADIR, "/usr/share/nano") != 0) {
+		inc_glob = copy_of("\"/usr/share/nano/*.nanorc\"");
+		parse_includes(inc_glob);
+		free(inc_glob);
+
+		inc_glob = copy_of("\"/usr/share/nano/extra/*.nanorc\"");
+		parse_includes(inc_glob);
+		free(inc_glob);
+	}
+}
+#endif
+
 /* Process the nanorc file that was specified on the command line (if any),
  * and otherwise the system-wide rcfile followed by the user's rcfile. */
 void do_rcfiles(void)
@@ -1741,6 +1786,10 @@ void do_rcfiles(void)
 		else if (homedir == NULL && xdgconfdir == NULL)
 			jot_error(N_("I can't find my home directory!  Wah!"));
 	}
+
+#ifdef ENABLE_COLOR
+	load_default_syntaxes();
+#endif
 
 	check_vitals_mapped();
 

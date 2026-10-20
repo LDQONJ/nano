@@ -492,11 +492,191 @@ void redo_cut(undostruct *u)
 	cutbuffer = oldcutbuffer;
 }
 
+/* Swap adjacent lines A and B, where A is immediately followed by B. */
+static void swap_adjacent_lines(linestruct *A, linestruct *B)
+{
+	linestruct *prev = A->prev;
+	linestruct *next = B->next;
+
+	if (prev)
+		prev->next = B;
+	else
+		openfile->filetop = B;
+
+	B->prev = prev;
+	B->next = A;
+
+	A->prev = B;
+	A->next = next;
+
+	if (next)
+		next->prev = A;
+	else
+		openfile->filebot = A;
+
+	if (openfile->edittop == A)
+		openfile->edittop = B;
+
+	renumber_from(B);
+}
+
+/* Duplicate the current line below the current line. */
+void copy_line_down(void)
+{
+	if (ISSET(VIEW_MODE)) {
+		print_view_warning();
+		return;
+	}
+
+	linestruct *thisline = openfile->current;
+	linestruct *newnode = make_new_node(thisline);
+
+	newnode->data = copy_of(thisline->data);
+
+	add_undo(DUPLICATE_LINE, NULL);
+	openfile->current_undo->head_lineno = thisline->lineno;
+	openfile->current_undo->head_x = openfile->current_x;
+	openfile->current_undo->tail_lineno = thisline->lineno + 1;
+	openfile->current_undo->tail_x = openfile->current_x;
+	openfile->current_undo->strdata = copy_of(thisline->data);
+
+	splice_node(thisline, newnode);
+	renumber_from(newnode);
+
+	openfile->totsize += strlen(newnode->data) + 1;
+
+	/* If text was added at EOF and a magic line is needed... */
+	if (newnode == openfile->filebot && !ISSET(NO_NEWLINES)) {
+		new_magicline();
+		openfile->current_undo->xflags |= INCLUDED_LAST_LINE;
+	}
+
+	openfile->current = newnode;
+	openfile->placewewant = xplustabs();
+	set_modified();
+
+	update_undo(DUPLICATE_LINE);
+
+	refresh_needed = TRUE;
+	focusing = FALSE;
+}
+
+/* Duplicate the current line above the current line. */
+void copy_line_up(void)
+{
+	if (ISSET(VIEW_MODE)) {
+		print_view_warning();
+		return;
+	}
+
+	linestruct *thisline = openfile->current;
+	linestruct *newnode = make_new_node(thisline->prev);
+
+	newnode->data = copy_of(thisline->data);
+
+	add_undo(DUPLICATE_LINE, NULL);
+	openfile->current_undo->head_lineno = thisline->lineno;
+	openfile->current_undo->head_x = openfile->current_x;
+	openfile->current_undo->tail_lineno = thisline->lineno;
+	openfile->current_undo->tail_x = openfile->current_x;
+	openfile->current_undo->strdata = copy_of(thisline->data);
+
+	if (thisline->prev)
+		splice_node(thisline->prev, newnode);
+	else {
+		newnode->prev = NULL;
+		newnode->next = thisline;
+		thisline->prev = newnode;
+		openfile->filetop = newnode;
+	}
+
+	if (openfile->edittop == thisline)
+		openfile->edittop = newnode;
+
+	renumber_from(newnode);
+
+	openfile->totsize += strlen(newnode->data) + 1;
+
+	openfile->current = newnode;
+	openfile->placewewant = xplustabs();
+	set_modified();
+
+	update_undo(DUPLICATE_LINE);
+
+	refresh_needed = TRUE;
+	focusing = FALSE;
+}
+
+/* Move the current line one row down. */
+void move_line_down(void)
+{
+	if (ISSET(VIEW_MODE)) {
+		print_view_warning();
+		return;
+	}
+
+	linestruct *thisline = openfile->current;
+	linestruct *nextline = thisline->next;
+
+	if (nextline == NULL)
+		return;
+
+	if (!ISSET(NO_NEWLINES) && nextline == openfile->filebot && nextline->data[0] == '\0')
+		return;
+
+	add_undo(MOVE_LINE, NULL);
+	openfile->current_undo->head_lineno = thisline->lineno;
+	openfile->current_undo->tail_lineno = thisline->lineno + 1;
+	openfile->current_undo->head_x = openfile->current_x;
+	openfile->current_undo->tail_x = openfile->current_x;
+
+	swap_adjacent_lines(thisline, nextline);
+
+	openfile->placewewant = xplustabs();
+	set_modified();
+
+	update_undo(MOVE_LINE);
+
+	refresh_needed = TRUE;
+	focusing = FALSE;
+}
+
+/* Move the current line one row up. */
+void move_line_up(void)
+{
+	if (ISSET(VIEW_MODE)) {
+		print_view_warning();
+		return;
+	}
+
+	linestruct *thisline = openfile->current;
+	linestruct *prevline = thisline->prev;
+
+	if (prevline == NULL)
+		return;
+
+	add_undo(MOVE_LINE, NULL);
+	openfile->current_undo->head_lineno = thisline->lineno;
+	openfile->current_undo->tail_lineno = thisline->lineno - 1;
+	openfile->current_undo->head_x = openfile->current_x;
+	openfile->current_undo->tail_x = openfile->current_x;
+
+	swap_adjacent_lines(prevline, thisline);
+
+	openfile->placewewant = xplustabs();
+	set_modified();
+
+	update_undo(MOVE_LINE);
+
+	refresh_needed = TRUE;
+	focusing = FALSE;
+}
+
 /* Undo the last thing(s) we did. */
 void do_undo(void)
 {
 	undostruct *u = openfile->current_undo;
-	linestruct *oldcutbuffer, *intruder;
+	linestruct *oldcutbuffer, *intruder, *swappee;
 	linestruct *line = NULL;
 	size_t original_x, regain_from_x;
 	char *undidmsg = NULL;
@@ -614,6 +794,26 @@ void do_undo(void)
 							openfile->filebot != openfile->current)
 			remove_magicline();
 		break;
+	case DUPLICATE_LINE:
+		undidmsg = _("line duplication");
+		intruder = line_from_number(u->tail_lineno);
+		if (intruder) {
+			linestruct *renumber_start = intruder->prev ? intruder->prev : intruder->next;
+			if ((u->xflags & INCLUDED_LAST_LINE) && !ISSET(NO_NEWLINES))
+				remove_magicline();
+			unlink_node(intruder);
+			if (renumber_start)
+				renumber_from(renumber_start);
+			goto_line_posx(u->head_lineno, u->head_x);
+		}
+		break;
+	case MOVE_LINE:
+		undidmsg = _("line move");
+		swappee = line_from_number(MIN(u->head_lineno, u->tail_lineno));
+		if (swappee && swappee->next)
+			swap_adjacent_lines(swappee, swappee->next);
+		goto_line_posx(u->head_lineno, u->head_x);
+		break;
 	case COUPLE_BEGIN:
 		undidmsg = u->strdata;
 		goto_line_posx(u->head_lineno, u->head_x);
@@ -663,7 +863,8 @@ void do_undo(void)
 #ifdef ENABLE_COLOR
 	if (u->type <= REPLACE)
 		check_the_multis(openfile->current);
-	else if (u->type == INSERT || u->type == COUPLE_BEGIN)
+	else if (u->type == INSERT || u->type == COUPLE_BEGIN ||
+			 u->type == DUPLICATE_LINE || u->type == MOVE_LINE)
 		recook = TRUE;
 #endif
 
@@ -681,7 +882,7 @@ void do_redo(void)
 	undostruct *u = openfile->undotop;
 	bool suppress_modification = FALSE;
 	linestruct *line = NULL;
-	linestruct *intruder;
+	linestruct *intruder, *swappee;
 	char *redidmsg = NULL;
 	char *data;
 
@@ -785,6 +986,37 @@ void do_redo(void)
 		free_lines(u->cutbuffer);
 		u->cutbuffer = NULL;
 		break;
+	case DUPLICATE_LINE:
+		redidmsg = _("line duplication");
+		line = line_from_number(u->head_lineno);
+		if (line) {
+			intruder = make_new_node(NULL);
+			intruder->data = copy_of(u->strdata);
+			if (u->tail_lineno > u->head_lineno) {
+				splice_node(line, intruder);
+			} else {
+				if (line->prev)
+					splice_node(line->prev, intruder);
+				else {
+					intruder->prev = NULL;
+					intruder->next = line;
+					line->prev = intruder;
+					openfile->filetop = intruder;
+				}
+			}
+			renumber_from(intruder);
+			if ((u->xflags & INCLUDED_LAST_LINE) && !ISSET(NO_NEWLINES))
+				new_magicline();
+			goto_line_posx(u->tail_lineno, u->tail_x);
+		}
+		break;
+	case MOVE_LINE:
+		redidmsg = _("line move");
+		swappee = line_from_number(MIN(u->head_lineno, u->tail_lineno));
+		if (swappee && swappee->next)
+			swap_adjacent_lines(swappee, swappee->next);
+		goto_line_posx(u->tail_lineno, u->head_x);
+		break;
 	case COUPLE_BEGIN:
 		openfile->current_undo = u;
 		do_redo();
@@ -832,7 +1064,8 @@ void do_redo(void)
 #ifdef ENABLE_COLOR
 	if (u->type <= REPLACE)
 		check_the_multis(openfile->current);
-	else if (u->type == INSERT || u->type == COUPLE_END)
+	else if (u->type == INSERT || u->type == COUPLE_END ||
+			 u->type == DUPLICATE_LINE || u->type == MOVE_LINE)
 		recook = TRUE;
 #endif
 
@@ -1082,6 +1315,8 @@ void add_undo(undo_type action, const char *message)
 	case COMMENT:
 	case UNCOMMENT:
 #endif
+	case DUPLICATE_LINE:
+	case MOVE_LINE:
 		break;
 	default:
 #ifdef DEBUG
@@ -1178,6 +1413,8 @@ void update_undo(undo_type action)
 			add_undo(u->type, NULL);
 		break;
 	case REPLACE:
+	case DUPLICATE_LINE:
+	case MOVE_LINE:
 		break;
 #ifdef ENABLE_WRAPPING
 	case SPLIT_BEGIN:

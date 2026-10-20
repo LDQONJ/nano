@@ -795,6 +795,11 @@ void list_syntax_names(void)
 {
 	int width = 0;
 
+#ifdef ENABLE_NANORC
+	if (syntaxes == NULL)
+		load_default_syntaxes();
+#endif
+
 	printf(_("Available syntaxes:\n"));
 
 	for (syntaxtype *sntx = syntaxes; sntx != NULL; sntx = sntx->next) {
@@ -1298,6 +1303,14 @@ void unbound_key(int code)
 	else if (code > KEY_F0 && code < KEY_F0 + 25)
 		/* TRANSLATORS: This refers to an unbound function key. */
 		statusline(AHEM, _("Unbound key: F%i"), code - KEY_F0);
+	else if (code == ALT_UP)
+		statusline(AHEM, _("Unbound key: M-Up"));
+	else if (code == ALT_DOWN)
+		statusline(AHEM, _("Unbound key: M-Down"));
+	else if (code == SHIFT_ALT_UP)
+		statusline(AHEM, _("Unbound key: Sh-M-Up"));
+	else if (code == SHIFT_ALT_DOWN)
+		statusline(AHEM, _("Unbound key: Sh-M-Down"));
 #endif
 	else if (code > 0x7F)
 		statusline(AHEM, _("Unbound key"));
@@ -1401,6 +1414,8 @@ bool changes_something(functionptrtype f)
 			f == chop_previous_word || f == chop_next_word ||
 			f == zap_text || f == cut_till_eof || f == do_execute ||
 			f == do_indent || f == do_unindent ||
+			f == copy_line_up || f == copy_line_down ||
+			f == move_line_up || f == move_line_down ||
 #endif
 #ifdef ENABLE_JUSTIFY
 			f == do_justify || f == do_full_justify ||
@@ -1733,6 +1748,10 @@ int main(int argc, char **argv)
 	bool fill_used = FALSE;
 		/* Was the fill option used on the command line? */
 #endif
+#ifndef NANO_TINY
+	bool autoindent_cmdline = FALSE;
+		/* Was autoindent explicitly specified on the command line? */
+#endif
 #ifdef ENABLE_WRAPPING
 	int hardwrap = -2;
 		/* Becomes 0 when --nowrap and 1 when --breaklonglines is used. */
@@ -1873,6 +1892,9 @@ int main(int argc, char **argv)
 
 	/* Set a sensible default, different from what Pico does. */
 	SET(NO_WRAP);
+#ifndef NANO_TINY
+	SET(AUTOINDENT);
+#endif
 
 	/* If the executable's name starts with 'r', activate restricted mode. */
 	if (*(tail(argv[0])) == 'r')
@@ -2033,6 +2055,7 @@ int main(int argc, char **argv)
 				exit(0);
 #ifndef NANO_TINY
 			case 'i':
+				autoindent_cmdline = TRUE;
 				SET(AUTOINDENT);
 				break;
 			case 'j':
@@ -2115,8 +2138,7 @@ int main(int argc, char **argv)
 			case 'z':
 				if (!ignore_rcfiles)
 					do_rcfiles();
-				if (syntaxes)
-					list_syntax_names();
+				list_syntax_names();
 				exit(0);
 #endif
 #ifdef HAVE_LIBMAGIC
@@ -2207,6 +2229,10 @@ int main(int argc, char **argv)
 		/* Back up the command-line flags. */
 		unsigned flags_cmdline[sizeof(flags) / sizeof(flags[0])];
 		memcpy(flags_cmdline, flags, sizeof(flags_cmdline));
+#ifndef NANO_TINY
+		if (!autoindent_cmdline)
+			flags_cmdline[AUTOINDENT / (sizeof(unsigned) * 8)] &= ~FLAGMASK(AUTOINDENT);
+#endif
 
 		/* Clear the string options, to not overwrite the specified ones. */
 #ifndef NANO_TINY
@@ -2493,6 +2519,10 @@ int main(int argc, char **argv)
 	/* Tell ncurses to transform bracketed-paste sequences into keycodes. */
 	define_key("\e[200~", START_OF_PASTE);
 	define_key("\e[201~", END_OF_PASTE);
+	define_key("\e[1;3A", ALT_UP);
+	define_key("\e[1;3B", ALT_DOWN);
+	define_key("\e[1;4A", SHIFT_ALT_UP);
+	define_key("\e[1;4B", SHIFT_ALT_DOWN);
 #endif
 #endif /* NANO_TINY */
 
