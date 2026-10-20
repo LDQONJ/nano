@@ -94,7 +94,7 @@ install_from_source() {
     elif command -v apk >/dev/null 2>&1; then
         info "Detected Alpine Linux. Installing build dependencies..."
         $SUDO apk update
-        $SUDO apk add git alpine-sdk autoconf automake gettext-dev ncurses-dev texinfo curl
+        $SUDO apk add git alpine-sdk autoconf automake gettext-dev ncurses-dev texinfo curl python3 coreutils linux-headers
     elif command -v dnf >/dev/null 2>&1; then
         info "Detected Fedora/RHEL/CentOS (dnf). Installing build dependencies..."
         $SUDO dnf install -y git gcc make autoconf automake gettext-devel ncurses-devel texinfo curl

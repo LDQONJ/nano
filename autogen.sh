@@ -1,7 +1,8 @@
 #!/bin/sh
+set -e
 # Generate configure & friends for GIT users.
 
-gnulib_url="git://git.sv.gnu.org/gnulib.git"
+gnulib_url="https://git.savannah.gnu.org/git/gnulib.git"
 gnulib_hash="d89ea630c1318a1a595aa3aff169586f4e626274"
 
 modules="
@@ -51,5 +52,5 @@ echo "Gnulib-tool..."
 echo
 
 echo "Autoreconf..."
-autoreconf --install --symlink --force
+autoreconf --install --force
 echo "Done."
