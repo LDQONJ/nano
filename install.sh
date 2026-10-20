@@ -74,9 +74,9 @@ install_from_binary() {
     $SUDO cp -f "${TMP_DIR}/bin/nano" "${INSTALL_DIR}/nano"
     $SUDO chmod 755 "${INSTALL_DIR}/nano"
 
-    if [ -d "${TMP_DIR}/share/nano" ]; then
-        $SUDO mkdir -p "${SHARE_DIR}"
-        $SUDO cp -rf "${TMP_DIR}/share/nano/"* "${SHARE_DIR}/"
+    if [ -d "${TMP_DIR}/share" ]; then
+        $SUDO mkdir -p "/usr/local/share"
+        $SUDO cp -rf "${TMP_DIR}/share/"* "/usr/local/share/"
     fi
 
     rm -rf "${TMP_DIR}"

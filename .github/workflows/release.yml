@@ -39,13 +39,16 @@ jobs:
             strip -s src/nano
             
             # Prepare distribution bundle
-            mkdir -p /workspace/dist/bin /workspace/dist/share/nano
+            mkdir -p /workspace/dist/bin /workspace/dist/share/nano /workspace/dist/share/man/man1 /workspace/dist/share/man/man5 /workspace/dist/share/doc/nano
             cp src/nano /workspace/dist/bin/nano
             cp syntax/*.nanorc /workspace/dist/share/nano/
             if [ -d syntax/extra ]; then
               mkdir -p /workspace/dist/share/nano/extra
               cp syntax/extra/*.nanorc /workspace/dist/share/nano/extra/
             fi
+            cp doc/nano.1 /workspace/dist/share/man/man1/
+            cp doc/nanorc.5 /workspace/dist/share/man/man5/
+            [ -f doc/sample.nanorc ] && cp doc/sample.nanorc /workspace/dist/share/doc/nano/
             
             cd /workspace/dist
             tar -czvf /workspace/nano-linux-${{ matrix.arch }}.tar.gz bin share
