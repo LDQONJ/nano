@@ -2,7 +2,8 @@
 set -e
 # Generate configure & friends for GIT users.
 
-gnulib_url="https://git.savannah.gnu.org/git/gnulib.git"
+gnulib_url="https://github.com/coreutils/gnulib.git"
+gnulib_fallback_url="https://git.savannah.gnu.org/git/gnulib.git"
 gnulib_hash="d89ea630c1318a1a595aa3aff169586f4e626274"
 
 modules="
@@ -35,14 +36,16 @@ modules="
 
 # Make sure the local gnulib git repo is up-to-date.
 if [ ! -d "gnulib" ]; then
-	git clone --depth=2222 ${gnulib_url}
+	git clone --depth=2222 "${gnulib_url}" gnulib || git clone --depth=2222 "${gnulib_fallback_url}" gnulib
 fi
 cd gnulib >/dev/null || exit 1
 curr_hash=$(git log -1 --format=%H)
 if [ "${gnulib_hash}" != "${curr_hash}" ]; then
-	echo "Pulling..."
-	git pull
-	git checkout --force ${gnulib_hash}
+	echo "Checking out ${gnulib_hash}..."
+	git checkout --force "${gnulib_hash}" 2>/dev/null || {
+		git fetch --depth=2222 origin "${gnulib_hash}" 2>/dev/null || git pull
+		git checkout --force "${gnulib_hash}"
+	}
 fi
 cd .. >/dev/null || exit 1
 
