@@ -26,7 +26,7 @@ Purpose
 Appearance
 
     In rough ASCII graphics, this is what nano's screen looks like:
-
+```text
    ____________________________________________________________________
   |  GNU nano 9.2                  filename                  Modified  |
    --------------------------------------------------------------------
@@ -45,7 +45,7 @@ Appearance
   |^G Help       ^O Write Out  ^F Where Is   ^K Cut        ^T Execute  |
   |^X Exit       ^R Read File  ^\ Replace    ^U Paste      ^J Justify  |
    --------------------------------------------------------------------
-
+```
 Origin
 
     The nano project was started in 1999 because of a few "problems"
