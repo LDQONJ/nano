@@ -26,14 +26,40 @@ success() { printf "${GREEN}[SUCCESS]${NC} %s\n" "$*"; }
 warn() { printf "${YELLOW}[WARN]${NC} %s\n" "$*"; }
 error() { printf "${RED}[ERROR]${NC} %s\n" "$*" >&2; exit 1; }
 
+OS="$(uname -s)"
+IS_WINDOWS=false
+case "${OS}" in
+    Linux)
+        IS_WINDOWS=false
+        ;;
+    MINGW*|MSYS*|CYGWIN*)
+        IS_WINDOWS=true
+        ;;
+    *)
+        error "Unsupported operating system: ${OS}."
+        ;;
+esac
+
 # Sudo check
 SUDO=""
-if [ "$(id -u)" -ne 0 ]; then
-    if command -v sudo >/dev/null 2>&1; then
-        SUDO="sudo"
-    else
-        error "This script requires root privileges. Please run as root or install sudo."
+if [ "$IS_WINDOWS" = "false" ]; then
+    if [ "$(id -u)" -ne 0 ]; then
+        if command -v sudo >/dev/null 2>&1; then
+            SUDO="sudo"
+        else
+            error "This script requires root privileges. Please run as root or install sudo."
+        fi
     fi
+    INSTALL_DIR="/usr/local/bin"
+    SHARE_DIR="/usr/local/share/nano"
+else
+    # For Windows Git Bash / MSYS2, install into /usr/bin or existing nano directory
+    if command -v nano >/dev/null 2>&1; then
+        INSTALL_DIR="$(dirname "$(which nano)")"
+    else
+        INSTALL_DIR="/usr/bin"
+    fi
+    SHARE_DIR="/usr/share/nano"
 fi
 
 # Detect Architecture
@@ -46,41 +72,74 @@ case "${ARCH}" in
         TARGET_ARCH="arm64"
         ;;
     *)
-        TARGET_ARCH=""
+        TARGET_ARCH="amd64"
         ;;
 esac
 
-OS="$(uname -s)"
-if [ "${OS}" != "Linux" ]; then
-    error "Only Linux is supported at this moment (got: ${OS})."
-fi
-
 install_from_binary() {
-    info "Attempting to download prebuilt static binary for ${TARGET_ARCH}..."
     TMP_DIR="$(mktemp -d)"
-    TARBALL="nano-linux-${TARGET_ARCH}.tar.gz"
-    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${TARBALL}"
+    if [ "$IS_WINDOWS" = "true" ]; then
+        info "Detected Windows (Git Bash). Attempting to download prebuilt binary for ${TARGET_ARCH}..."
+        ARCHIVE="nano-windows-${TARGET_ARCH}.zip"
+        DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${ARCHIVE}"
+        
+        if ! curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${ARCHIVE}" 2>/dev/null; then
+            # Fallback to amd64 if arm64 not found (since x64 runs seamlessly on ARM64 Windows via Prism)
+            ARCHIVE="nano-windows-amd64.zip"
+            DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${ARCHIVE}"
+            if ! curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${ARCHIVE}" 2>/dev/null; then
+                warn "Could not download prebuilt release from ${DOWNLOAD_URL}"
+                rm -rf "${TMP_DIR}"
+                return 1
+            fi
+        fi
 
-    if ! curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${TARBALL}" 2>/dev/null; then
-        warn "Could not download prebuilt release from ${DOWNLOAD_URL}"
+        info "Extracting and installing files..."
+        if command -v unzip >/dev/null 2>&1; then
+            unzip -q -o "${TMP_DIR}/${ARCHIVE}" -d "${TMP_DIR}"
+        else
+            tar -xf "${TMP_DIR}/${ARCHIVE}" -C "${TMP_DIR}"
+        fi
+
+        mkdir -p "${INSTALL_DIR}"
+        if ! cp -f "${TMP_DIR}/bin/nano.exe" "${INSTALL_DIR}/nano.exe" 2>/dev/null; then
+            error "Permission denied writing to ${INSTALL_DIR}/nano.exe. Please right-click Git Bash and select 'Run as administrator' to install."
+        fi
+        chmod 755 "${INSTALL_DIR}/nano.exe"
+
+        if [ -d "${TMP_DIR}/share" ]; then
+            mkdir -p "/usr/share"
+            cp -rf "${TMP_DIR}/share/"* "/usr/share/" 2>/dev/null || true
+        fi
+
         rm -rf "${TMP_DIR}"
-        return 1
+        return 0
+    else
+        info "Attempting to download prebuilt static binary for ${TARGET_ARCH}..."
+        ARCHIVE="nano-linux-${TARGET_ARCH}.tar.gz"
+        DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${ARCHIVE}"
+
+        if ! curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${ARCHIVE}" 2>/dev/null; then
+            warn "Could not download prebuilt release from ${DOWNLOAD_URL}"
+            rm -rf "${TMP_DIR}"
+            return 1
+        fi
+
+        info "Extracting and installing files..."
+        tar -xzf "${TMP_DIR}/${ARCHIVE}" -C "${TMP_DIR}"
+        
+        $SUDO mkdir -p "${INSTALL_DIR}"
+        $SUDO cp -f "${TMP_DIR}/bin/nano" "${INSTALL_DIR}/nano"
+        $SUDO chmod 755 "${INSTALL_DIR}/nano"
+
+        if [ -d "${TMP_DIR}/share" ]; then
+            $SUDO mkdir -p "/usr/local/share"
+            $SUDO cp -rf "${TMP_DIR}/share/"* "/usr/local/share/"
+        fi
+
+        rm -rf "${TMP_DIR}"
+        return 0
     fi
-
-    info "Extracting and installing files..."
-    tar -xzf "${TMP_DIR}/${TARBALL}" -C "${TMP_DIR}"
-    
-    $SUDO mkdir -p "${INSTALL_DIR}"
-    $SUDO cp -f "${TMP_DIR}/bin/nano" "${INSTALL_DIR}/nano"
-    $SUDO chmod 755 "${INSTALL_DIR}/nano"
-
-    if [ -d "${TMP_DIR}/share" ]; then
-        $SUDO mkdir -p "/usr/local/share"
-        $SUDO cp -rf "${TMP_DIR}/share/"* "/usr/local/share/"
-    fi
-
-    rm -rf "${TMP_DIR}"
-    return 0
 }
 
 install_from_source() {
@@ -129,15 +188,20 @@ else
     success "Successfully built and installed customized nano from source!"
 fi
 
-# Ensure /usr/local/bin/nano takes precedence
-if [ -f "/usr/bin/nano" ] && [ ! -L "/usr/bin/nano" ]; then
-    # If /usr/bin/nano exists and is a regular file, replace it with a symlink to /usr/local/bin/nano
-    # so system commands/cron that call /usr/bin/nano will also use the custom nano
-    $SUDO ln -sf "${INSTALL_DIR}/nano" /usr/bin/nano
+# Ensure /usr/local/bin/nano takes precedence on Linux
+if [ "$IS_WINDOWS" = "false" ]; then
+    if [ -f "/usr/bin/nano" ] && [ ! -L "/usr/bin/nano" ]; then
+        # If /usr/bin/nano exists and is a regular file, replace it with a symlink to /usr/local/bin/nano
+        # so system commands/cron that call /usr/bin/nano will also use the custom nano
+        $SUDO ln -sf "${INSTALL_DIR}/nano" /usr/bin/nano
+    fi
+    NANO_BIN="${INSTALL_DIR}/nano"
+else
+    NANO_BIN="${INSTALL_DIR}/nano.exe"
 fi
 
 # Verify
-NANO_VER="$("${INSTALL_DIR}/nano" --version | head -n 1)"
+NANO_VER="$("${NANO_BIN}" --version | head -n 1)"
 success "Installation complete! ${NANO_VER}"
 info "Custom features enabled by default:"
 info "  - Alt + ↑ / ↓ : Copy current line up / down"

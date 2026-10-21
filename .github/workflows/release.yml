@@ -60,9 +60,70 @@ jobs:
           name: nano-linux-${{ matrix.arch }}
           path: nano-linux-${{ matrix.arch }}.tar.gz
 
+  build-windows:
+    name: Build Windows MSYS2 Binary (for Git for Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          install: >-
+            gcc
+            make
+            autoconf
+            automake
+            gettext-devel
+            ncurses-devel
+            libiconv-devel
+            git
+            zip
+            python
+
+      - name: Build nano.exe
+        shell: msys2 {0}
+        run: |
+          set -ex
+          git config --global --add safe.directory '*'
+          ./autogen.sh
+          ./configure --prefix=/usr --sysconfdir=/etc --enable-color --enable-nanorc --enable-utf8
+          make -j$(nproc)
+          strip -s src/nano.exe
+          
+          mkdir -p dist/bin dist/share/nano dist/share/man/man1 dist/share/man/man5 dist/share/doc/nano
+          cp src/nano.exe dist/bin/
+          cp syntax/*.nanorc dist/share/nano/
+          if [ -d syntax/extra ]; then
+            mkdir -p dist/share/nano/extra
+            cp syntax/extra/*.nanorc dist/share/nano/extra/
+          fi
+          cp doc/nano.1 dist/share/man/man1/
+          cp doc/nanorc.5 dist/share/man/man5/
+          [ -f doc/sample.nanorc ] && cp doc/sample.nanorc dist/share/doc/nano/
+          
+          cd dist
+          zip -r ../nano-windows-amd64.zip bin share
+          cp ../nano-windows-amd64.zip ../nano-windows-arm64.zip
+
+      - name: Upload Windows amd64 Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nano-windows-amd64
+          path: nano-windows-amd64.zip
+
+      - name: Upload Windows arm64 Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nano-windows-arm64
+          path: nano-windows-arm64.zip
+
   release:
     name: Publish Release
-    needs: build-static
+    needs: [build-static, build-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -73,7 +134,7 @@ jobs:
       - name: Prepare Release Assets
         run: |
           mkdir -p release-assets
-          find artifacts -name "*.tar.gz" -exec cp {} release-assets/ \;
+          find artifacts \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release-assets/ \;
           ls -la release-assets/
 
       - name: Create or Update GitHub Release
@@ -81,5 +142,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v9.2-custom' }}
-          files: release-assets/*.tar.gz
+          files: release-assets/*
           generate_release_notes: true
