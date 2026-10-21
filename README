@@ -1,3 +1,16 @@
+## Nano 文本编辑器
+- 默认 Tab 缩进修改为 4
+- 默认开启自动缩进
+- 默认开启代码高亮
+- 增加自定义快捷键 `Alt+↑/↓`（向上/下复制当前行）、`Alt+Shift+↑/↓`（向上/下移动当前行）
+
+### 一键安装或替换已安装nano
+```bash
+bash <(curl -fsSL https://github.com/LDQONJ/nano/install.sh)
+```
+
+---
+
 
           GNU nano -- a simple editor, inspired by Pico
 
