@@ -132,17 +132,16 @@ jobs:
           fi
 
           # Create nano.cmd wrapper
-          cat << 'EOF' > dist-standalone/bin/nano.cmd
-@echo off
-setlocal
-if not defined TERM set "TERM=xterm-256color"
-if not defined TERMINFO (
-    if exist "%~dp0..\share\terminfo" set "TERMINFO=%~dp0..\share\terminfo"
-    if exist "%~dp0..\usr\share\terminfo" set "TERMINFO=%~dp0..\usr\share\terminfo"
-)
-"%~dp0nano.exe" %*
-endlocal
-EOF
+          printf '%s\r\n' \
+            '@echo off' \
+            'setlocal' \
+            'if not defined TERM set "TERM=xterm-256color"' \
+            'if not defined TERMINFO (' \
+            '    if exist "%~dp0..\share\terminfo" set "TERMINFO=%~dp0..\share\terminfo"' \
+            '    if exist "%~dp0..\usr\share\terminfo" set "TERMINFO=%~dp0..\usr\share\terminfo"' \
+            ')' \
+            '"%~dp0nano.exe" %*' \
+            'endlocal' > dist-standalone/bin/nano.cmd
 
           cd dist-standalone
           zip -r ../nano-windows-standalone-amd64.zip bin share usr
