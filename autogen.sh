@@ -55,5 +55,8 @@ echo "Gnulib-tool..."
 echo
 
 echo "Autoreconf..."
+# Temporarily hide install.sh so automake doesn't mistake it for the obsolete BSD install script
+[ -f install.sh ] && mv install.sh .install.sh.tmp
 autoreconf --install --force
+[ -f .install.sh.tmp ] && mv .install.sh.tmp install.sh
 echo "Done."

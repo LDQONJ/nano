@@ -402,8 +402,8 @@ if test "x$enable_utf8" != xno; then
 	AC_CHECK_FUNCS(iswalpha iswalnum iswpunct mbstowcs wctomb)
 fi
 
-AC_CHECK_FUNCS_ONCE(chmod chown fchmod fchown flockfile funlockfile
-                    fork fsync geteuid pipe wait waitpid)
+m4_pattern_allow([^_AC_Func_])
+AC_CHECK_FUNCS([chmod chown fchmod fchown flockfile funlockfile fork fsync geteuid pipe wait waitpid])
 
 dnl Checks for available flags.
 
