@@ -78,6 +78,7 @@ jobs:
             autoconf
             automake
             pkgconf
+            texinfo
             gettext-devel
             ncurses-devel
             libiconv-devel
