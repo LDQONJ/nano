@@ -2183,9 +2183,24 @@ int main(int argc, char **argv)
 	if (!isatty(STDOUT_FILENO))
 		die(_("Standard output is not a terminal\n"));
 
-	/* Curses needs TERM; if it is unset, try falling back to a VT220. */
-	if (getenv("TERM") == NULL)
+	/* Curses needs TERM; if it is unset, try falling back to a VT220 / xterm. */
+	if (getenv("TERM") == NULL) {
+#if defined(__CYGWIN__) || defined(__MSYS__)
+		putenv("TERM=xterm-256color");
+#else
 		putenv("TERM=vt220");
+#endif
+	}
+
+#if defined(__CYGWIN__) || defined(__MSYS__)
+	/* In standalone Windows, locate bundled terminfo if TERMINFO is not set. */
+	if (getenv("TERMINFO") == NULL) {
+		if (access("/share/terminfo", F_OK) == 0)
+			putenv("TERMINFO=/share/terminfo");
+		else if (access("/usr/share/terminfo", F_OK) == 0)
+			putenv("TERMINFO=/usr/share/terminfo");
+	}
+#endif
 
 	/* Enter into curses mode.  Abort if this fails. */
 	if (initscr() == NULL)

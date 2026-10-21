@@ -1755,6 +1755,16 @@ void load_default_syntaxes(void)
 		parse_includes(inc_glob);
 		free(inc_glob);
 	}
+
+	if (syntaxes == NULL) {
+		inc_glob = copy_of("\"/share/nano/*.nanorc\"");
+		parse_includes(inc_glob);
+		free(inc_glob);
+
+		inc_glob = copy_of("\"/share/nano/extra/*.nanorc\"");
+		parse_includes(inc_glob);
+		free(inc_glob);
+	}
 }
 #endif
 

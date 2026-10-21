@@ -80,6 +80,7 @@ jobs:
             pkgconf
             texinfo
             gettext-devel
+            ncurses
             ncurses-devel
             libiconv-devel
             git
@@ -110,6 +111,43 @@ jobs:
           cd dist
           zip -r ../nano-windows-amd64.zip bin share
           cp ../nano-windows-amd64.zip ../nano-windows-arm64.zip
+          cd ..
+
+          # 2. Package Standalone edition without Git (nano-windows-standalone-amd64.zip)
+          mkdir -p dist-standalone/bin dist-standalone/share/nano dist-standalone/share/terminfo dist-standalone/usr/share
+          cp src/nano.exe dist-standalone/bin/
+          cp -r dist/share/nano dist-standalone/share/
+          cp -r dist/share/nano dist-standalone/usr/share/
+
+          # Copy dependent MSYS DLLs
+          for dll in $(ldd src/nano.exe | grep -i '/usr/bin/msys-.*\.dll' | awk '{print $3}'); do
+            [ -f "$dll" ] && cp -u "$dll" dist-standalone/bin/
+          done
+          cp -u /usr/bin/msys-2.0.dll /usr/bin/msys-ncursesw*.dll /usr/bin/msys-intl*.dll /usr/bin/msys-iconv*.dll /usr/bin/msys-magic*.dll dist-standalone/bin/ 2>/dev/null || true
+
+          # Copy terminfo database
+          if [ -d /usr/share/terminfo ]; then
+            cp -r /usr/share/terminfo dist-standalone/share/
+            cp -r dist-standalone/share/terminfo dist-standalone/usr/share/
+          fi
+
+          # Create nano.cmd wrapper
+          cat << 'EOF' > dist-standalone/bin/nano.cmd
+@echo off
+setlocal
+if not defined TERM set "TERM=xterm-256color"
+if not defined TERMINFO (
+    if exist "%~dp0..\share\terminfo" set "TERMINFO=%~dp0..\share\terminfo"
+    if exist "%~dp0..\usr\share\terminfo" set "TERMINFO=%~dp0..\usr\share\terminfo"
+)
+"%~dp0nano.exe" %*
+endlocal
+EOF
+
+          cd dist-standalone
+          zip -r ../nano-windows-standalone-amd64.zip bin share usr
+          cp ../nano-windows-standalone-amd64.zip ../nano-windows-standalone-arm64.zip
+          cd ..
 
       - name: Upload Windows amd64 Zip Artifact
         uses: actions/upload-artifact@v4
@@ -122,6 +160,18 @@ jobs:
         with:
           name: nano-windows-arm64
           path: nano-windows-arm64.zip
+
+      - name: Upload Windows Standalone amd64 Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nano-windows-standalone-amd64
+          path: nano-windows-standalone-amd64.zip
+
+      - name: Upload Windows Standalone arm64 Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nano-windows-standalone-arm64
+          path: nano-windows-standalone-arm64.zip
 
   release:
     name: Publish Release

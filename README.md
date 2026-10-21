@@ -1,13 +1,27 @@
-## Nano 文本编辑器
-- 默认 Tab 缩进修改为 4
-- 默认开启自动缩进
-- 默认开启代码高亮
-- 增加自定义快捷键 `Alt+↑/↓`（向上/下复制当前行）、`Alt+Shift+↑/↓`（向上/下移动当前行）
+## Nano 文本编辑器 (定制增强版)
+- 默认 Tab 缩进修改为 4 空格
+- 源码级默认开启自动缩进（回车保持前一行缩进）
+- 源码级默认开启代码高亮（自动加载全部内置语法规则）
+- 增加自定义快捷键：
+  - `Alt + ↑ / ↓`：向上/下复制当前行
+  - `Alt + Shift + ↑ / ↓`：向上/下移动当前行
 
-### 一键安装或替换已安装nano
+---
+
+### 一键安装
+
+#### 1. Linux 与 Windows Git Bash（自动替换系统/Git自带nano）
+在 Linux（Ubuntu / Debian / CentOS / Alpine / Arch 等）或 Windows **Git Bash**（以管理员身份运行）中执行：
 ```bash
-bash <(curl -fsSL https://github.com/LDQONJ/nano/install.sh)
+curl -fsSL https://raw.githubusercontent.com/LDQONJ/nano/main/install.sh | bash
 ```
+
+#### 2. Windows 独立版（无需 Git，适配原生 PowerShell / CMD / Windows Terminal）
+无需安装 Git 或任何第三方软件，在 Windows **PowerShell** 中直接执行：
+```powershell
+irm https://raw.githubusercontent.com/LDQONJ/nano/main/install.ps1 | iex
+```
+脚本会自动下载预编译的绿色独立版，解压至 `~/.nano`，自动配置用户 `PATH` 和终端环境。安装完成后在任意终端窗口直接输入 `nano` 即可使用。
 
 ---
 

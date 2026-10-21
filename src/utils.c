@@ -35,6 +35,11 @@ void get_homedir(void)
 	if (homedir == NULL) {
 		const char *homenv = getenv("HOME");
 
+#if defined(__CYGWIN__) || defined(__MSYS__)
+		if (homenv == NULL || *homenv == '\0')
+			homenv = getenv("USERPROFILE");
+#endif
+
 #ifdef HAVE_PWD_H
 		/* When $HOME is unset, or when we're root, try the database. */
 		if (homenv == NULL || geteuid() == ROOT_UID) {
